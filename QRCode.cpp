@@ -13,7 +13,7 @@ string chartoBinary(char c) {
         bits = char('0' + (value%2)) + bits;
         value = value /= 2;
     }
-// This is how the algorithm: value%2 helps to get remainder 0 and 1, like it divides the character's number by 2 and the loop keeps on going until it has 8 bits.
+// This is how the algorithm works: value%2 helps to get remainder 0 and 1, like it divides the character's number by 2 and the loop keeps on going until it has 8 bits.
     return bits;
 }
 
@@ -28,7 +28,7 @@ string texttoBinary(const string &text){
 int calculatetheCheckSum(const string &text){
     int sum = 0;
     for (unsigned int i = 0; i < text.size(); i++){
-        sum += int(text.at(i));
+        sum += static_cast<int>(text.at(i));
     }
     return sum;
 }
@@ -76,7 +76,7 @@ vector<string> binarytoImg(const string &binary){
     return rows;
 }
 
-// This is how the algorithm works: The function is basically converting the string into a square grid where inner loop  moves column by column and inner loop moves row by row.
+// This is how the algorithm works: The function is basically converting the string into a square grid where inner loop moves column by column and inner loop moves row by row.
 // It uses # for 1, and 0 for spaces to form QR alike shape.
 
 
@@ -142,29 +142,160 @@ accessed: Aug. 2025
     return result;
  }
 
-//----------------------------------------------------------------------------------//
 
 
-QRCode::QRCode()
-{
+
+
+ QRCode::QRCode() {
     message = "";
     binaryData = "";
+    grid.clear();  // This line of code was written with the aid of ChatGPT; when prompted 'how to remove all stored QR rows so the vector is empty and ready to store new data?'the generated text helped me write the this line of code: accessed: Dec. 2025
     checksum = 0;
-}
 
+ }
 void QRCode::encodeFromUserInput()
 {
-    cout << "Type message you would like to encode:" << endl;
-    getline(cin, message);
-
-    /for (int i = 0;i < message.size();i++)
-    {
-        int val = message.at(i);
-
-        for (int j = 0;j < 8;i++)//binary number will be in size 8
-        {
-            binaryData = char('0' + (value % 2)) + binaryData;
-            val = val / 2;
-        }
-    }/
+    cout << "Type message you would like to encode: " << endl;
+    getline(cin,message);
+    
+    if(message.size() == 0){
+        getline(cin,message);
+    }
+    
+    binaryData = texttoBinary(message);
+    
+    checksum = calculatetheCheckSum(message);
+    
+    grid = binarytoImg(binaryData);
+    
+    cout << "Checksum = " << checksum << endl;
 }
+
+void QRCode::saveToFile(const string &filename){
+    //to make this part I had this video guide me : https://www.youtube.com/watch?v=Cz4fl-TUjVk&t=113s 
+    
+    ofstream outFile(filename); // creates the file that will output
+    
+    if(!outFile){
+        cout << "There was an error and could not open the file" << endl;
+        return;
+    }
+    
+    string signature = "Your_Qr_Code";
+    
+    outFile << signature << endl;
+    
+    outFile << "CheckSum is " << checksum << endl;
+    
+    for(unsigned int i = 0; i< grid.size(); i++){
+        outFile << grid.at(i) << endl; // will save the qr image to the file 
+    }
+    
+    outFile << signature << endl;
+    
+    outFile.close();
+    
+    cout << "Your Qr Code was saved sucessfully to file called :" << filename << endl;
+}
+
+void QRCode::displayQrOnTerminal(){
+    cout << "CheckSum is " << checksum << endl;
+    cout <<"         Qr Code is :        "<< endl;
+    cout << endl;
+    
+    printImg(grid);
+    
+    cout <<"         Image was printed successfully         " << endl;
+}
+ void QRCode::explainSignature() {
+    cout << endl << "Here is the explantion of the signature:" << endl;
+    cout << "This program has a unique signature, which is: Your_Qr_Code" << endl;
+    cout << "The signature appears as the first and last line of the saved file." << endl;
+    cout << "To help the decoder to verify the message, A CHECKSUM line is also saved" << endl;
+    cout << "These lines of code will not affect decoding because these lines are not part of the grid." << endl;
+    cout << endl;
+
+
+ }
+/* -----
+This code was written with the aid of ChatGPT;
+when prompted 'how to write a function that loads a QR code from a file, verifies signature and reads the checksum?'
+the generated text helped me write the following code:
+accessed: Aug. 2025
+ -------- */
+ bool QRCode::loadFromFile(const string &filename){
+    ifstream file(filename);
+    if (!file){
+        cout << "Error: could not open the file." << endl;
+        return false;
+    }
+
+    string signature = "Your_Qr_Code";
+    string line;
+
+    getline(file, line);
+    line = rtrim(line);
+    if (line != signature){
+        cout << "Error: The QR file is invalid." << endl;
+        return false;
+
+    }
+
+    getline(file, line);
+    line = rtrim(line);
+    int loadedChecksum = 0;
+    for (int i = 9; i < line.length(); i++){
+        if (line[i] >= '0' && line[i] <= '9'){
+            loadedChecksum = loadedChecksum * 10 + (line[i] - '0');
+        }
+    }
+
+    vector<string> loadedGrid;
+
+    while (getline(file, line)){
+        if (rtrim(line) == signature){
+            break;
+        }
+        loadedGrid.push_back(line);
+    }
+
+    if (loadedGrid.size() == 0){
+        cout << "Error: No QR code found, try again!!" << endl;
+        return false;
+    }
+    grid = loadedGrid;
+    checksum = loadedChecksum;
+
+    cout << "QR code loaded successfully" << endl;
+    return true;
+
+ }
+
+ void QRCode::decodeQr(){
+    if (grid.size() == 0){
+        cout << "No grid loaded to decode" << endl;
+        return;
+    }
+        string bits = imgtoBinary(grid);
+
+        string decodedMessage = binarytoText(bits);
+        int decodedChecksum = calculatetheCheckSum(decodedMessage);
+
+        cout << endl;
+
+        cout << "Decoded message:" << endl;
+
+        cout << decodedMessage << endl;
+        cout << endl;
+        cout << "Saved checksum: " << checksum << endl;
+        cout << "Decoded checksum: " << decodedChecksum << endl;
+
+        if (checksum == decodedChecksum){
+            cout << "Checksum verification: PASSED" << endl;
+
+        }
+        else {
+            cout << "Checksum verification: FAILED" << endl;
+        }
+    }
+ 
